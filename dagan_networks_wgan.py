@@ -1,6 +1,8 @@
-import tensorflow as tf
+# import tensorflow as tf
 from dagan_architectures import UResNetGenerator, Discriminator
 
+import tensorflow.compat.v1 as tf
+tf.disable_v2_behavior()
 
 class DAGAN:
     def __init__(self, input_x_i, input_x_j, dropout_rate, generator_layer_sizes,
@@ -164,7 +166,7 @@ class DAGAN:
 
             d_real = t_same_class_outputs
             d_fake = g_same_class_outputs
-            d_loss = tf.reduce_mean(d_fake) - tf.reduce_mean(d_real)
+            d_loss = tf.reduce_mean(d_fake) - tf.reduce_mean(d_real) # Earth-Distance
             g_loss = -tf.reduce_mean(d_fake)
 
             alpha = tf.random_uniform(

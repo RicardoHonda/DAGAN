@@ -1,5 +1,8 @@
 import tensorflow as tf
-from tensorflow.contrib.layers import batch_norm, layer_norm
+# from tensorflow.keras.layers import BatchNormalization as batch_norm
+# from tensorflow.keras.layers import LayerNormalization as layer_norm
+# from tensorflow.compat.v1.layers import BatchNormalization as batch_norm
+# from tensorflow.compat.v1.layers import LayerNormalization as layer_norm
 from tensorflow.python.ops.image_ops_impl import ResizeMethod
 from tensorflow.python.ops.nn_ops import leaky_relu
 from utils.network_summary import count_parameters
@@ -51,7 +54,7 @@ class UResNetGenerator:
         """
         [b, h, w, c] = [int(dim) for dim in x.get_shape()]
 
-        return tf.image.resize_nearest_neighbor(x, (h_size, w_size))
+        return tf.compat.v1.image.resize_nearest_neighbor(x, (h_size, w_size))
 
     def conv_layer(self, inputs, num_filters, filter_size, strides, activation=None,
                    transpose=False, w_size=None, h_size=None):
@@ -70,11 +73,11 @@ class UResNetGenerator:
         self.conv_layer_num += 1
         if transpose:
             outputs = self.upscale(inputs, h_size=h_size, w_size=w_size)
-            outputs = tf.layers.conv2d_transpose(outputs, num_filters, filter_size,
+            outputs = tf.compat.v1.layers.conv2d_transpose(outputs, num_filters, filter_size,
                                                  strides=strides,
                                        padding="SAME", activation=activation)
         elif not transpose:
-            outputs = tf.layers.conv2d(inputs, num_filters, filter_size, strides=strides,
+            outputs = tf.compat.v1.layers.conv2d(inputs, num_filters, filter_size, strides=strides,
                                                  padding="SAME", activation=activation)
         return outputs
 
@@ -129,15 +132,15 @@ class UResNetGenerator:
         if dim_reduce:
             outputs = self.conv_layer(outputs, num_features, [3, 3], strides=(2, 2))
             outputs = leaky_relu(outputs)
-            outputs = batch_norm(outputs, decay=0.99, scale=True,
-                                 center=True, is_training=training,
+            outputs = tf.compat.v1.layers.batch_normalization(outputs, momentum=0.99, scale=True,
+                                 center=True, training=training,
                                  renorm=True)
-            outputs = tf.layers.dropout(outputs, rate=dropout_rate, training=training)
+            outputs = tf.compat.v1.layers.dropout(outputs, rate=dropout_rate, training=training)
         else:
             outputs = self.conv_layer(outputs, num_features, [3, 3], strides=(1, 1))
             outputs = leaky_relu(features=outputs)
-            outputs = batch_norm(outputs, decay=0.99, scale=True,
-                                 center=True, is_training=training,
+            outputs = tf.compat.v1.layers.batch_normalization(outputs, momentum=0.99, scale=True,
+                                 center=True, training=training,
                                  renorm=True)
 
         return outputs
@@ -189,17 +192,17 @@ class UResNetGenerator:
             outputs = self.conv_layer(outputs, num_features, [3, 3], strides=(1, 1),
                                       transpose=True, w_size=w_size, h_size=h_size)
             outputs = leaky_relu(features=outputs)
-            outputs = batch_norm(outputs,
-                                 decay=0.99, scale=True,
-                                 center=True, is_training=training,
+            outputs = tf.compat.v1.layers.batch_normalization(outputs,
+                                 momentum=0.99, scale=True,
+                                 center=True, training=training,
                                  renorm=True)
-            outputs = tf.layers.dropout(outputs, rate=dropout_rate, training=training)
+            outputs = tf.compat.v1.layers.dropout(outputs, rate=dropout_rate, training=training)
         else:
             outputs = self.conv_layer(outputs, num_features, [3, 3], strides=(1, 1),
                                        transpose=False)
             outputs = leaky_relu(features=outputs)
-            outputs = batch_norm(outputs, decay=0.99, scale=True,
-                                 center=True, is_training=training,
+            outputs = tf.compat.v1.layers.batch_normalization(outputs, momentum=0.99, scale=True,
+                                 center=True, training=training,
                                  renorm=True)
 
         return outputs
@@ -214,22 +217,22 @@ class UResNetGenerator:
         :return: Returns x_g (generated images), encoder_layers(encoder features), decoder_layers(decoder features)
         """
         conditional_input = tf.convert_to_tensor(conditional_input)
-        with tf.variable_scope(self.name, reuse=self.reuse):
+        with tf.compat.v1.variable_scope(self.name, reuse=self.reuse):
             # reshape from inputs
             outputs = conditional_input
             encoder_layers = []
             current_layers = [outputs]
-            with tf.variable_scope('conv_layers'):
+            with tf.compat.v1.variable_scope('conv_layers'):
 
                 for i, layer_size in enumerate(self.layer_sizes):
                     encoder_inner_layers = [outputs]
-                    with tf.variable_scope('g_conv{}'.format(i)):
+                    with tf.compat.v1.variable_scope('g_conv{}'.format(i)):
                         if i==0: #first layer is a single conv layer instead of MultiLayer for best results
                             outputs = self.conv_layer(outputs, num_filters=64,
                                                       filter_size=(3, 3), strides=(2, 2))
                             outputs = leaky_relu(features=outputs)
-                            outputs = batch_norm(outputs, decay=0.99, scale=True,
-                                                 center=True, is_training=training,
+                            outputs = tf.compat.v1.layers.batch_normalization(outputs, momentum=0.99, scale=True,
+                                                 center=True, training=training,
                                                  renorm=True)
                             current_layers.append(outputs)
                             encoder_inner_layers.append(outputs)
@@ -256,7 +259,7 @@ class UResNetGenerator:
 
             g_conv_encoder = outputs
 
-            with tf.variable_scope("vector_expansion"):  # Used for expanding the z injected noise to match the
+            with tf.compat.v1.variable_scope("vector_expansion"):  # Used for expanding the z injected noise to match the
                                                          # dimensionality of the various decoder MultiLayers, injecting
                                                          # noise into multiple decoder layers in a skip-connection way
                                                          # improves quality of results. We inject in the first 3 decode
@@ -268,7 +271,7 @@ class UResNetGenerator:
                 for i in range(len(self.inner_layers)):
                     h = concat_shape[len(encoder_layers) - 1 - i][1]
                     w = concat_shape[len(encoder_layers) - 1 - i][1]
-                    z_dense = tf.layers.dense(z_inputs, h * w * num_filters)
+                    z_dense = tf.compat.v1.layers.dense(z_inputs, h * w * num_filters)
                     z_reshape_noise = tf.reshape(z_dense, [self.batch_size, h, w, num_filters])
                     num_filters /= 2
                     num_filters = int(num_filters)
@@ -278,7 +281,7 @@ class UResNetGenerator:
             outputs = g_conv_encoder
             decoder_layers = []
             current_layers = [outputs]
-            with tf.variable_scope('g_deconv_layers'):
+            with tf.compat.v1.variable_scope('g_deconv_layers'):
                 for i in range(len(self.layer_sizes)+1):
                     if i<3: #Pass the injected noise to the first 3 decoder layers for sharper results
                         outputs = tf.concat([z_layers[i], outputs], axis=3)
@@ -293,7 +296,7 @@ class UResNetGenerator:
                         outputs = tf.concat([outputs, conditional_input], axis=3)
                         upscale_shape = conditional_input.get_shape().as_list()
 
-                    with tf.variable_scope('g_deconv{}'.format(i)):
+                    with tf.compat.v1.variable_scope('g_deconv{}'.format(i)):
                         decoder_inner_layers = [outputs]
                         for j in range(inner_layers):
                             if i==0 and j==0:
@@ -346,19 +349,19 @@ class UResNetGenerator:
                                                          transpose=False)
                     outputs = leaky_relu(features=outputs)
 
-                    outputs = batch_norm(outputs,
-                                         decay=0.99, scale=True,
-                                         center=True, is_training=training,
+                    outputs = tf.compat.v1.layers.batch_normalization(outputs,
+                                         momentum=0.99, scale=True,
+                                         center=True, training=training,
                                          renorm=True)
                     high_res_layers.append(outputs)
                 outputs = self.conv_layer(outputs, self.num_channels, [3, 3], strides=(1, 1),
                                                      transpose=False)
             # output images
-            with tf.variable_scope('g_tanh'):
+            with tf.compat.v1.variable_scope('g_tanh'):
                 gan_decoder = tf.tanh(outputs, name='outputs')
 
         self.reuse = True
-        self.variables = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=self.name)
+        self.variables = tf.compat.v1.get_collection(tf.compat.v1.GraphKeys.TRAINABLE_VARIABLES, scope=self.name)
 
         if self.build:
             print("generator_total_layers", self.conv_layer_num)
@@ -409,10 +412,10 @@ class Discriminator:
         """
         self.conv_layer_num += 1
         if transpose:
-            outputs = tf.layers.conv2d_transpose(inputs, num_filters, filter_size, strides=strides,
+            outputs = tf.compat.v1.layers.conv2d_transpose(inputs, num_filters, filter_size, strides=strides,
                                        padding="SAME", activation=activation)
         elif not transpose:
-            outputs = tf.layers.conv2d(inputs, num_filters, filter_size, strides=strides,
+            outputs = tf.compat.v1.layers.conv2d(inputs, num_filters, filter_size, strides=strides,
                                                  padding="SAME", activation=activation)
         return outputs
 
@@ -449,12 +452,14 @@ class Discriminator:
         if dim_reduce:
             outputs = self.conv_layer(outputs, num_features, [3, 3], strides=(2, 2))
             outputs = leaky_relu(features=outputs)
-            outputs = layer_norm(inputs=outputs, center=True, scale=True)
-            outputs = tf.layers.dropout(outputs, rate=dropout_rate, training=training)
+            layer = tf.keras.layers.LayerNormalization()
+            outputs = layer(outputs)
+            outputs = tf.compat.v1.layers.dropout(outputs, rate=dropout_rate, training=training)
         else:
             outputs = self.conv_layer(outputs, num_features, [3, 3], strides=(1, 1))
             outputs = leaky_relu(features=outputs)
-            outputs = layer_norm(inputs=outputs, center=True, scale=True)
+            layer = tf.keras.layers.LayerNormalization()
+            outputs = layer(outputs)
 
         return outputs
 
@@ -470,20 +475,21 @@ class Discriminator:
         """
         conditional_input = tf.convert_to_tensor(conditional_input)
         generated_input = tf.convert_to_tensor(generated_input)
-        with tf.variable_scope(self.name, reuse=self.reuse):
+        with tf.compat.v1.variable_scope(self.name, reuse=self.reuse):
             concat_images = tf.concat([conditional_input, generated_input], axis=3)
             outputs = concat_images
             encoder_layers = []
             current_layers = [outputs]
-            with tf.variable_scope('conv_layers'):
+            with tf.compat.v1.variable_scope('conv_layers'):
                 for i, layer_size in enumerate(self.layer_sizes):
                     encoder_inner_layers = [outputs]
-                    with tf.variable_scope('g_conv{}'.format(i)):
+                    with tf.compat.v1.variable_scope('g_conv{}'.format(i)):
                         if i == 0:
                             outputs = self.conv_layer(outputs, num_filters=64,
                                                       filter_size=(3, 3), strides=(2, 2))
                             outputs = leaky_relu(features=outputs)
-                            outputs = layer_norm(inputs=outputs, center=True, scale=True)
+                            layer = tf.keras.layers.LayerNormalization()
+                            outputs = layer(outputs)
                             current_layers.append(outputs)
                         else:
                             for j in range(self.inner_layers[i]):
@@ -512,26 +518,26 @@ class Discriminator:
                         encoder_layers.append(outputs)
 
 
-            with tf.variable_scope('discriminator_dense_block'):
+            with tf.compat.v1.variable_scope('discriminator_dense_block'):
                 if self.use_wide_connections:
                     mean_encoder_layers = []
                     concat_encoder_layers = []
                     for layer in encoder_layers:
                         mean_encoder_layers.append(tf.reduce_mean(layer, axis=[1, 2]))
-                        concat_encoder_layers.append(tf.layers.flatten(layer))
+                        concat_encoder_layers.append(tf.compat.v1.layers.flatten(layer))
                     feature_level_flatten = tf.concat(mean_encoder_layers, axis=1)
                     location_level_flatten = tf.concat(concat_encoder_layers, axis=1)
                 else:
                     feature_level_flatten = tf.reduce_mean(encoder_layers[-1], axis=[1, 2])
-                    location_level_flatten = tf.layers.flatten(encoder_layers[-1])
+                    location_level_flatten = tf.compat.v1.layers.flatten(encoder_layers[-1])
 
-                feature_level_dense = tf.layers.dense(feature_level_flatten, units=1024, activation=leaky_relu)
+                feature_level_dense = tf.compat.v1.layers.dense(feature_level_flatten, units=1024, activation=leaky_relu)
                 combo_level_flatten = tf.concat([feature_level_dense, location_level_flatten], axis=1)
-            with tf.variable_scope('discriminator_out_block'):
-                outputs = tf.layers.dense(combo_level_flatten, 1, name='outputs')
+            with tf.compat.v1.variable_scope('discriminator_out_block'):
+                outputs = tf.compat.v1.layers.dense(combo_level_flatten, 1, name='outputs')
 
         self.reuse = True
-        self.variables = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=self.name)
+        self.variables = tf.compat.v1.get_collection(tf.compat.v1.GraphKeys.TRAINABLE_VARIABLES, scope=self.name)
         #view_names_of_variables(self.variables)
         if self.build:
             print("discr layers", self.conv_layer_num)

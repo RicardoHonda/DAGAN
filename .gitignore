@@ -3,6 +3,12 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+# Logs, generated images and test/temporary files
+*.png
+*.out.*
+experiment_log.csv
+*.ipynb
+
 # C extensions
 *.so
 

@@ -2,11 +2,13 @@ import utils.interpolations as interpolations
 import numpy as np
 import tqdm
 from utils.storage import save_statistics, build_experiment_folder
-from tensorflow.contrib import slim
+import tf_slim as slim
 
 from dagan_networks_wgan import *
 from utils.sampling import sample_generator, sample_two_dimensions_generator
 
+import tensorflow.compat.v1 as tf
+tf.disable_v2_behavior()
 
 class ExperimentBuilder(object):
     def __init__(self, args, data):

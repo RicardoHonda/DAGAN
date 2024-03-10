@@ -1,7 +1,7 @@
 import utils.interpolations
 import tqdm
 from utils.storage import *
-from tensorflow.contrib import slim
+import tf_slim as slim
 
 from dagan_networks_wgan import *
 from utils.sampling import *
